@@ -28,11 +28,16 @@ def readData(rutaArchivo):
     data = pd.read_csv(rutaArchivo)
     return data
 
-def getClasesData(data):
+def getNombreClases(data, nombreClase):
+    nombreClases = data[nombreClase].unique()
+    return nombreClases
+
+def getClasesData(data, nombreClase):
     clasesData = []
-    lenClases = len(data['Species'].unique())
-    for clase in data['Species'].unique():
-        clasesData.append(data[data['Species'] == clase])
+    nombreClases = getNombreClases(data, nombreClase)
+    lenClases = len(nombreClases)
+    for clase in nombreClases:
+        clasesData.append(data[data[nombreClase] == clase])
     return clasesData, lenClases
 
 def getPriorProb(lenData, clasesData):
@@ -64,14 +69,70 @@ def getGaussianProbability(x, mean, std):
     fdp = (1 / (np.sqrt(2 * np.pi) * std)) * exponent
     return fdp
 
+# 4. Clasificador Gaussian Naive Bayes
+def gaussianNaiveBayes(clasesData, pW, muestra, medias, desviaciones):
+    epsilon = 1e-10
+    numClases = len(clasesData)
+    pPosteriores = []
+
+    print("Muestra a clasificar:", muestra)
+    print("Medias:", medias)
+    print("Desviaciones:", desviaciones)
+    print("Numero de clases:", numClases)
+
+    for i in range(numClases):
+        probabilidadClase = pW[i]
+        likelihood = getGaussianProbability(muestra[i], medias[i], desviaciones[i])
+        likelihood = np.where(likelihood > 0, likelihood, epsilon)
+        posterior = math.log(probabilidadClase) + np.sum(np.log(likelihood))
+        posterior = float(posterior)
+        pPosteriores.append(posterior)
+        print(f"Posterior para clase {i}: {posterior}")
+
+    print("Probabilidades posteriores:", pPosteriores)
+    clasePredicha = np.argmax(pPosteriores)
+    print("Indice de clase predicha:", clasePredicha)
+
+
+    # posteriors = []
+    #     print("Datos de prueba:", row[1:5].values)
+    #     for i in range(len(clasesData)):
+    #         prior = pW[i]
+    #         # print("Prior:", prior)
+    #         likelihood = getGaussianProbability(row[1:5].values, medias[i], desviaciones[i])
+    #         posterior = math.log(prior) + np.sum(np.log(likelihood))
+    #         posterior = float(posterior)
+    #         posteriors.append(posterior)
+    #         # print(f"Posterior para clase {i}: {posterior}")
+    #     print("Probabilidades posteriores:", posteriors)
+    #     predicted_class = nombresClases[np.argmax(posteriors)]
+
+    # posteriors = []
+        # print("Datos de prueba:", row[1:5].values)
+        # for i in range(len(clasesData)):
+        #     prior = pW[i]
+        #     # print("Prior:", prior)
+        #     likelihood = getGaussianProbability(row[1:5].values, medias[i], desviaciones[i])
+        #     posterior = math.log(prior * likelihood.prod())
+        #     posteriors.append(posterior)
+        #     print(f"Posterior para clase {i}: {posterior}")
+        # print("Probabilidades posteriores:", posteriors)
+    return clasePredicha, pPosteriores
+
+
+
+
 
 
 # Main
 data = readData('./Tarea07/Iris.csv')
-clasesData, totalClases = getClasesData(data)
+atributoEtiqueta = 'Species'
+nombresClases = getNombreClases(data, atributoEtiqueta)
+clasesData, totalClases = getClasesData(data, atributoEtiqueta)
 
 print("Tamaño total de datos:", len(data))
 print("Total de clases:", totalClases)
+# print("Clases data:", clasesData)
 # print(clasesData[2])
 
 # 1. Calculamos la probabilidad a priori de cada clase
@@ -79,7 +140,7 @@ pW = getPriorProb(len(data), clasesData)
 print("Probabilidades a priori de cada clase:", pW)
 
 # 2. Dividimos los datos en K-Folds
-kf = KFold(n_splits=10, shuffle=True, random_state=42)
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
 fold = 1
 for train_index, test_index in kf.split(data):
     print("=======================================")
@@ -90,21 +151,25 @@ for train_index, test_index in kf.split(data):
     # print("test_data:", test_data)
 
     # Calculamos medias y desviaciones estándar para cada clase en los datos de entrenamiento
-    clasesTrainData, _ = getClasesData(train_data)
+    clasesTrainData, _ = getClasesData(train_data, atributoEtiqueta)
     medias, desviaciones = getMean_Std(clasesTrainData)
     # print("Medias por clase:", medias)
     # print("Desviaciones estándar por clase:", desviaciones)
 
     # Clasificamos los datos de prueba
     for index, row in test_data.iterrows():
-        posteriors = []
-        print("Datos de prueba:", row[1:5].values)
-        for i in range(len(clasesData)):
-            prior = pW[i]
-            # print("Prior:", prior)
-            likelihood = getGaussianProbability(row[1:5].values, medias[i], desviaciones[i])
-            posterior = math.log(prior * likelihood.prod())
-            posteriors.append(posterior)
-            print(f"Posterior para clase {i}: {posterior}")
-        predicted_class = data['Species'].unique()[np.argmax(posteriors)]
-        print(f"Ejemplo {index} - Clase real: {row['Species']} - Clase predicha: {predicted_class}")
+        predicted_class_index, posteriors = gaussianNaiveBayes(clasesTrainData, pW, row[1:5].values, medias, desviaciones)
+        predicted_class = nombresClases[predicted_class_index]
+        # posteriors = []
+        # print("Datos de prueba:", row[1:5].values)
+        # for i in range(len(clasesData)):
+        #     prior = pW[i]
+        #     # print("Prior:", prior)
+        #     likelihood = getGaussianProbability(row[1:5].values, medias[i], desviaciones[i])
+        #     posterior = math.log(prior) + np.sum(np.log(likelihood))
+        #     posterior = float(posterior)
+        #     posteriors.append(posterior)
+        #     # print(f"Posterior para clase {i}: {posterior}")
+        # print("Probabilidades posteriores:", posteriors)
+        # predicted_class = nombresClases[np.argmax(posteriors)]
+        print(f"Ejemplo {index} - Clase real: {row[atributoEtiqueta]} - Clase predicha: {predicted_class}")
