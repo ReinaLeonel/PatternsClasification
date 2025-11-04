@@ -49,12 +49,12 @@ def getPriorProb(lenData, clasesData):
     return pW
 
 # 2. Calculamos la probabilidad condicional de cada clase (verosimilitud) calculando la media y la desviación estándar de cada atributo
-def getMean_Std(clasesData):
+def getMean_Std(clasesData, rango):
     medias = []
     desviaciones = []
     for clase in clasesData:
-        medias.append(clase.iloc[:, 1:5].mean().values)
-        desviaciones.append(clase.iloc[:, 1:5].std().values)
+        medias.append(clase.iloc[:, rango].mean().values)
+        desviaciones.append(clase.iloc[:, rango].std().values)
     return medias, desviaciones
 
 # 3. Se multiplican las probabilidades a priori por las verosimilitudes para cada clase y se elige la clase con mayor probabilidad posterior
@@ -72,7 +72,7 @@ def getGaussianProbability(x, mean, std):
     return fdp
 
 # 4. Clasificador Gaussian Naive Bayes
-def gaussianNaiveBayes(clasesData, pW, muestra, medias, desviaciones, i_Atr, j_Atr):
+def gaussianNaiveBayes(clasesData, pW, muestra, medias, desviaciones, rango):
     epsilon = 1e-10
     numClases = len(clasesData)
     pPosteriores = []
@@ -87,7 +87,8 @@ def gaussianNaiveBayes(clasesData, pW, muestra, medias, desviaciones, i_Atr, j_A
         pPosts = []
         for i in range(numClases):
             probabilidadClase = pW[i]
-            likelihood = getGaussianProbability(row[i_Atr:j_Atr].values, medias[i], desviaciones[i])
+            # likelihood = getGaussianProbability(row[i_Atr:j_Atr].values, medias[i], desviaciones[i])
+            likelihood = getGaussianProbability(row[rango].values, medias[i], desviaciones[i])
             likelihood = np.where(likelihood > 0, likelihood, epsilon)
             posterior = math.log(probabilidadClase) + np.sum(np.log(likelihood))
             posterior = float(posterior)
@@ -144,6 +145,8 @@ data = readData('./Tarea07/Iris.csv')
 atributoEtiqueta = 'Species'
 nombresClases = getNombreClases(data, atributoEtiqueta)
 clasesData, totalClases = getClasesData(data, atributoEtiqueta)
+rango = slice(1, 5)
+print("rango de atributos:", rango)
 
 
 print("Tamaño total de datos:", len(data))
@@ -171,7 +174,7 @@ for train_index, test_index in kf.split(data):
 
     # Calculamos medias y desviaciones estándar para cada clase en los datos de entrenamiento
     clasesTrainData, _ = getClasesData(train_data, atributoEtiqueta)
-    medias, desviaciones = getMean_Std(clasesTrainData)
+    medias, desviaciones = getMean_Std(clasesTrainData, rango)
     # print("Medias por clase:", medias)
     # print("Desviaciones estándar por clase:", desviaciones)
 
@@ -193,7 +196,7 @@ for train_index, test_index in kf.split(data):
     #     # predicted_class = nombresClases[np.argmax(posteriors)]
     #     print(f"Ejemplo {index} - Clase real: {row[atributoEtiqueta]} - Clase predicha: {predicted_class}")
 
-    indicesClassPredic, posteriors = gaussianNaiveBayes(clasesTrainData, pW, test_data, medias, desviaciones, 1, 5)
+    indicesClassPredic, posteriors = gaussianNaiveBayes(clasesTrainData, pW, test_data, medias, desviaciones, rango)
     print("Indices de clases predichas:", indicesClassPredic)
     print("Tamaño de indices de clases predichas:", len(indicesClassPredic))
 
@@ -237,6 +240,7 @@ df_metrics["Fold"] = df_metrics["Fold"].astype(str)
 
 numeric_cols = df_metrics.select_dtypes(include="number").columns
 promedios = df_metrics[numeric_cols].mean().to_dict()
+# print(promedios)
 df_metrics.loc[len(df_metrics)] = {"Fold": "Promedio", **promedios}
 
 print("\n=== Resultados por fold y promedio final ===")
