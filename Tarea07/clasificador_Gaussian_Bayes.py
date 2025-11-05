@@ -1,16 +1,23 @@
 import pandas as pd
 import numpy as np
 import math
+from scipy.io import arff
 from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, balanced_accuracy_score, precision_score
 from imblearn.metrics import sensitivity_score, specificity_score
 
-def readData(rutaArchivo):
-    data = pd.read_csv(rutaArchivo)
+def readData(rutaArchivo, formato='csv'):
+    if formato == 'csv':
+        data = pd.read_csv(rutaArchivo)
+    elif formato == 'arff':
+        data = arff.loadarff(rutaArchivo)
+        data = pd.DataFrame(data[0])
     return data
 
-def getNombreClases(data, nombreClase):
+def getNombreClases(data, nombreClase, formato='csv'):
     nombreClases = data[nombreClase].unique()
+    if formato == 'arff':
+        nombreClases = [clase.decode('utf-8') if isinstance(clase, bytes) else clase for clase in nombreClases]
     return nombreClases
 
 def getClasesData(data, nombreClase):
@@ -19,7 +26,8 @@ def getClasesData(data, nombreClase):
     lenClases = len(nombreClases)
     for clase in nombreClases:
         clasesData.append(data[data[nombreClase] == clase])
-    return clasesData, lenClases
+    lenPorClase = [len(clase) for clase in clasesData]
+    return clasesData, lenClases, lenPorClase
 
 def getPriorProb(lenData, clasesData):
     pW = []
@@ -69,23 +77,29 @@ def gaussianNaiveBayes(clasesData, pW, muestra, medias, desviaciones, rango):
     return clasesPredichas, pPosteriores
 
 # Main
-data = readData('./Tarea07/Iris.csv')
-atributoEtiqueta = 'Species'
-nombresClases = getNombreClases(data, atributoEtiqueta)
-clasesData, totalClases = getClasesData(data, atributoEtiqueta)
-rango = slice(1, 5)
+# data = readData('./Tarea07/Iris.csv', formato='csv')
+data = readData('./Tarea07/Rice_Cammeo_Osmancik.arff', formato='arff')
+atributoEtiqueta = 'Class'
+nombresClases = getNombreClases(data, atributoEtiqueta, formato='arff')
+clasesData, totalClases, tamañoPorClase = getClasesData(data, atributoEtiqueta)
+
+
+
+rango = slice(1, 7)
 print("rango de atributos:", rango)
 
 
-print("Tamaño total de datos:", len(data))
-print("Total de clases:", totalClases)
+# print("Tamaño total de datos:", len(data))
+# print("Total de clases:", totalClases)
+# print("Nombres de clases:", nombresClases)
+# print("Tamaño por clase:", tamañoPorClase)
 
 # 1. Calculamos la probabilidad a priori de cada clase
 pW = getPriorProb(len(data), clasesData)
 print("Probabilidades a priori de cada clase:", pW)
 
 # 2. Dividimos los datos en K-Folds
-kf = KFold(n_splits=150, shuffle=True, random_state=42)
+kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
 fold_metrics = [] # Para almacenar métricas de cada fold
 
@@ -98,7 +112,7 @@ for train_index, test_index in kf.split(data):
     test_data = data.iloc[test_index]
 
     # Calculamos medias y desviaciones estándar para cada clase en los datos de entrenamiento
-    clasesTrainData, _ = getClasesData(train_data, atributoEtiqueta)
+    clasesTrainData, _, _ = getClasesData(train_data, atributoEtiqueta)
     medias, desviaciones = getMean_Std(clasesTrainData, rango)
 
     indicesClassPredic, posteriors = gaussianNaiveBayes(clasesTrainData, pW, test_data, medias, desviaciones, rango)
@@ -113,6 +127,8 @@ for train_index, test_index in kf.split(data):
 
     # Evaluamos el desempeño del clasificador
     y_true = test_data[atributoEtiqueta].values
+    y_true = y_true.astype(str)
+    # print("y_true:", y_true)
     y_pred = clasesPredichas
     accuracy = accuracy_score(y_true, y_pred)
     f1 = f1_score(y_true, y_pred, average='weighted')
@@ -140,7 +156,6 @@ df_metrics["Fold"] = df_metrics["Fold"].astype(str)
 
 numeric_cols = df_metrics.select_dtypes(include="number").columns
 promedios = df_metrics[numeric_cols].mean().to_dict()
-# print(promedios)
 df_metrics.loc[len(df_metrics)] = {"Fold": "Promedio", **promedios}
 
 print("\n=== Resultados por fold y promedio final ===")
