@@ -85,21 +85,21 @@ clasesData, totalClases, tamañoPorClase = getClasesData(data, atributoEtiqueta)
 
 
 
-rango = slice(1, 7)
+rango = slice(0, 7)
 print("rango de atributos:", rango)
 
 
-# print("Tamaño total de datos:", len(data))
-# print("Total de clases:", totalClases)
-# print("Nombres de clases:", nombresClases)
-# print("Tamaño por clase:", tamañoPorClase)
+print("Tamaño total de datos:", len(data))
+print("Total de clases:", totalClases)
+print("Nombres de clases:", nombresClases)
+print("Tamaño por clase:", tamañoPorClase)
 
 # 1. Calculamos la probabilidad a priori de cada clase
 pW = getPriorProb(len(data), clasesData)
 print("Probabilidades a priori de cada clase:", pW)
 
 # 2. Dividimos los datos en K-Folds
-kf = KFold(n_splits=10, shuffle=True, random_state=42)
+kf = KFold(n_splits=3810, shuffle=True, random_state=42)
 
 fold_metrics = [] # Para almacenar métricas de cada fold
 
@@ -116,8 +116,8 @@ for train_index, test_index in kf.split(data):
     medias, desviaciones = getMean_Std(clasesTrainData, rango)
 
     indicesClassPredic, posteriors = gaussianNaiveBayes(clasesTrainData, pW, test_data, medias, desviaciones, rango)
-    print("Indices de clases predichas:", indicesClassPredic)
-    print("Tamaño de indices de clases predichas:", len(indicesClassPredic))
+    # print("Indices de clases predichas:", indicesClassPredic)
+    # print("Tamaño de indices de clases predichas:", len(indicesClassPredic))
 
     clasesPredichas = [nombresClases[index] for index in indicesClassPredic]
 
@@ -130,6 +130,8 @@ for train_index, test_index in kf.split(data):
     y_true = y_true.astype(str)
     # print("y_true:", y_true)
     y_pred = clasesPredichas
+    print("Clases predichas:", np.unique(y_pred))
+    print("Clases reales:", np.unique(y_true))
     accuracy = accuracy_score(y_true, y_pred)
     f1 = f1_score(y_true, y_pred, average='weighted')
     balanced_acc = balanced_accuracy_score(y_true, y_pred)
