@@ -5,6 +5,8 @@ from scipy.io import arff
 from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, balanced_accuracy_score, precision_score
 from imblearn.metrics import sensitivity_score, specificity_score
+from tqdm import tqdm
+import warnings
 
 def readData(rutaArchivo, formato='csv'):
     if formato == 'csv':
@@ -78,14 +80,22 @@ def gaussianNaiveBayes(clasesData, pW, muestra, medias, desviaciones, rango):
 
 # Main
 # data = readData('./Tarea07/Iris.csv', formato='csv')
-data = readData('./Tarea07/Rice_Cammeo_Osmancik.arff', formato='arff')
-atributoEtiqueta = 'Class'
-nombresClases = getNombreClases(data, atributoEtiqueta, formato='arff')
+data = readData('./Tarea07/Support_tickets.csv', formato='csv')
+atributoEtiqueta = 'priority'
+nombresClases = getNombreClases(data, atributoEtiqueta, formato='csv')
 clasesData, totalClases, tamañoPorClase = getClasesData(data, atributoEtiqueta)
 
+# Eliminación de algunas columnas no numéricas si es necesario, menos la de la etiqueta
+numericas = data.select_dtypes(include=['number']).columns.tolist()
+columna_extra = 'priority'
+columnas_finales = numericas + [columna_extra]
+data = data[columnas_finales]
 
+print("data: ", data)
+print("Número de columnas:", data.shape[1])
+print("Columna: ", data.columns[23])
 
-rango = slice(0, 7)
+rango = slice(0, 22)
 print("rango de atributos:", rango)
 
 
@@ -99,14 +109,14 @@ pW = getPriorProb(len(data), clasesData)
 print("Probabilidades a priori de cada clase:", pW)
 
 # 2. Dividimos los datos en K-Folds
-kf = KFold(n_splits=3810, shuffle=True, random_state=42)
+kf = KFold(n_splits=50000, shuffle=True, random_state=42)
 
 fold_metrics = [] # Para almacenar métricas de cada fold
 
 fold = 1
-for train_index, test_index in kf.split(data):
-    print("=======================================")
-    print(f"Fold {fold}")
+for train_index, test_index in tqdm(kf.split(data), total=50000, desc="K-Fold Cross Validation"):
+    # print("=======================================")
+    # print(f"Fold {fold}")
     
     train_data = data.iloc[train_index]
     test_data = data.iloc[test_index]
@@ -130,14 +140,16 @@ for train_index, test_index in kf.split(data):
     y_true = y_true.astype(str)
     # print("y_true:", y_true)
     y_pred = clasesPredichas
-    print("Clases predichas:", np.unique(y_pred))
-    print("Clases reales:", np.unique(y_true))
-    accuracy = accuracy_score(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred, average='weighted')
-    balanced_acc = balanced_accuracy_score(y_true, y_pred)
-    sensitivity = sensitivity_score(y_true, y_pred, average='weighted')
-    specificity = specificity_score(y_true, y_pred, average='weighted')
-    precision = precision_score(y_true, y_pred, average='weighted')
+    # print("Clases predichas:", np.unique(y_pred))
+    # print("Clases reales:", np.unique(y_true))
+    with warnings.catch_warnings(): # Ignorar warnings de métricas
+        warnings.simplefilter("ignore")
+        accuracy = accuracy_score(y_true, y_pred)
+        f1 = f1_score(y_true, y_pred, average='weighted')
+        balanced_acc = balanced_accuracy_score(y_true, y_pred)
+        sensitivity = sensitivity_score(y_true, y_pred, average='weighted')
+        specificity_value = specificity_score(y_true, y_pred, average='weighted')
+        precision = precision_score(y_true, y_pred, average='weighted')
 
     fold_metrics.append({
         'Fold': fold,
@@ -146,7 +158,7 @@ for train_index, test_index in kf.split(data):
         'Recall': sensitivity,
         'F1-Score': f1,
         'Balanced Accuracy': balanced_acc,
-        'Specificity': specificity,
+        'Specificity': specificity_value,
     })
 
     fold += 1
