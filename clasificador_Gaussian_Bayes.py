@@ -79,25 +79,29 @@ def gaussianNaiveBayes(clasesData, pW, muestra, medias, desviaciones, rango):
     return clasesPredichas, pPosteriores
 
 # Main
-# data = readData('./Tarea07/Iris.csv', formato='csv')
-data = readData('./Tarea07/Support_tickets.csv', formato='csv')
-atributoEtiqueta = 'priority'
+# data = readData('./Iris.csv', formato='csv')
+# data = readData('./Rice_Cammeo_Osmancik.arff', formato='arff')
+data = readData('./Support_tickets.csv', formato='csv')
+
+atributoEtiqueta = 'priority'  # Nombre de la columna que contiene la etiqueta de clase
 nombresClases = getNombreClases(data, atributoEtiqueta, formato='csv')
 clasesData, totalClases, tamañoPorClase = getClasesData(data, atributoEtiqueta)
 
-# Eliminación de algunas columnas no numéricas si es necesario, menos la de la etiqueta
+# Eliminación de algunas columnas no numéricas si es necesario, menos la de la etiqueta (Para el dataset de Support_tickets)
 numericas = data.select_dtypes(include=['number']).columns.tolist()
 columna_extra = 'priority'
 columnas_finales = numericas + [columna_extra]
 data = data[columnas_finales]
 
-print("data: ", data)
-print("Número de columnas:", data.shape[1])
-print("Columna: ", data.columns[23])
+# print("data: ", data)
+# print("Número de columnas:", data.shape[1])
+# print("Columna: ", data.columns[23])
 
-rango = slice(0, 22)
+# rango = slice(1, 4)  # Para el dataset de Iris
+# rango = slice(0, 6) # Para el dataset de Rice_Cammeo_Osmancik
+rango = slice(1, 21) # Para el dataset de Support_tickets
+
 print("rango de atributos:", rango)
-
 
 print("Tamaño total de datos:", len(data))
 print("Total de clases:", totalClases)
@@ -109,12 +113,13 @@ pW = getPriorProb(len(data), clasesData)
 print("Probabilidades a priori de cada clase:", pW)
 
 # 2. Dividimos los datos en K-Folds
-kf = KFold(n_splits=50000, shuffle=True, random_state=42)
+k = len(data)  # Número de folds para K-Fold Cross Validation
+kf = KFold(n_splits=k, shuffle=True, random_state=42)
 
 fold_metrics = [] # Para almacenar métricas de cada fold
 
 fold = 1
-for train_index, test_index in tqdm(kf.split(data), total=50000, desc="K-Fold Cross Validation"):
+for train_index, test_index in tqdm(kf.split(data), total=k, desc="K-Fold Cross Validation"):
     # print("=======================================")
     # print(f"Fold {fold}")
     
